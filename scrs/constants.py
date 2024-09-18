@@ -18,4 +18,3 @@ if _out is not None:
         OUT_DIR = Path(_out)
 else:
     raise EnvironmentError("Missing OUT_DIR from .env file!")
-
