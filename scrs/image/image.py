@@ -40,6 +40,16 @@ class Image:
             np.ndarray: A deep copy of the image data.
         """
         return deepcopy(self._data)
+    
+    @property
+    def history(self) -> list[str]:
+        """
+        Returns the history of operations that have been applied to the image.
+
+        Returns:
+            list[str]: The history of operations.
+        """
+        return self._history
 
     @log_and_save
     def load_fits(self, fits_file: Path) -> Self:
@@ -128,7 +138,7 @@ class Image:
 
         return self
 
-    def save_snapshot(self, step_name: str = None):
+    def save_snapshot(self, step_name: str) -> None:
         """
         Takes a copy of the current image and saves it to the history.
         """
@@ -160,5 +170,56 @@ class Image:
 
         hdu_list.writeto(self._save_file, overwrite=True)
 
-        self._history.append(step_id)
+        self._history.append(history_note)
         logger.info(f"Saved history [{step_id}] for {step_name}")
+
+    def get_snapshot(self, *, query: str | None = None, idx: int | None = None) -> 'Image':
+        """
+        Retrieves a snapshot of the image at the given step or index. Stores it in a new
+        Image instance.
+
+        Note that idx is shifted at each step, so idx=0 will return the most recent snapshot and
+        idx=-1 will return the oldest snapshot.
+
+        Args:
+            query (str): The step ID to retrieve the snapshot for, or the whole history value.
+
+        Returns:
+            np.ndarray: The image data at the given step ID.
+        """
+        if (query is None) == (idx is None):
+            raise ValueError("Either query or idx must be provided, but not both.")
+
+        if query is not None:
+            # Loop through history to find the corresponding ID
+            for i, hist in enumerate(self.history):
+                if query in hist:
+                    idx = i
+                    break
+            
+            if idx is None:
+                raise ValueError("Could not find the given step in the history.")
+
+        elif -len(self.history) > idx or idx >= len(self.history):
+            raise ValueError("Index out of range.")
+
+        hdu_list = fits.open(self._save_file)
+        data = hdu_list[idx].data
+        return Image(data)
+    
+    def get_diff(self, latest_idx: int, oldest_idx: int) -> 'Image':
+        """
+        Retrieves the difference between the image at the latest index and the oldest index.
+        i.e. latest_idx - oldest_idx
+
+        Args:
+            latest_idx (int): The most recent step ID to start at.
+            oldest_idx (int): The oldest step ID to end at.
+
+        Returns:
+            np.ndarray: The difference between the current image and the image at the given step ID.
+        """
+        latest_snap = self.get_snapshot(idx=latest_idx)
+        oldest_snap = self.get_snapshot(idx=oldest_idx)
+
+        return Image(latest_snap.data - oldest_snap.data)
