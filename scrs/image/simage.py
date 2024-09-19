@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from logging import getLogger
 from typing import Self
@@ -35,39 +34,36 @@ class Simage(Image):
         """
         img_height, img_width = self._data.shape
 
-        min_star_value: np.uint16 = 0
         max_amp = sat_level * (1.1 if allow_sat else 0.9)
 
-        for _ in range(num_stars):
-            # Random star positio np.uint16 = 0n (x0, y0)
-            x0 = np.random.randint(0, img_width)
-            y0 = np.random.randint(0, img_height)
+        # Random star attributes.
+        x_positions = np.random.randint(0, img_width, num_stars)
+        y_positions = np.random.randint(0, img_height, num_stars)
+        amplitudes = np.random.uniform(1, max_amp, num_stars)
+        sigmas = np.random.uniform(1, max_sigma, num_stars)
+        radii = np.ceil(np.sqrt(-2 * sigmas**2 * np.log(0.5 / amplitudes)))
 
-            # Random amplitude and size (sigma)
-            amplitude = np.random.uniform(1, max_amp)
-            sigma = np.random.uniform(1, max_sigma)
+        # Clip the region to the image bounds. Set all as integers.
+        x_mins = np.maximum(0, x_positions - radii).astype(int)
+        x_maxs = np.minimum(img_width, x_positions + radii + 1).astype(int)
+        y_mins = np.maximum(0, y_positions - radii).astype(int)
+        y_maxs = np.minimum(img_height, y_positions + radii + 1).astype(int)
 
-            # Local region calculations
-            min_val = 0.5  # Below this point, will be 0 in uint
-            radius = math.ceil(np.sqrt(-2 * sigma**2 * np.log(min_val / amplitude)))
-
-            # Clip the region to the image bounds
-            x_min = max(0, x0 - radius)
-            x_max = min(img_width, x0 + radius + 1)
-            y_min = max(0, y0 - radius)
-            y_max = min(img_height, y0 + radius + 1)
+        for i in range(num_stars):
+            x0, y0, amplitude, sigma = x_positions[i], y_positions[i], amplitudes[i], sigmas[i]
+            x_min, x_max, y_min, y_max = x_mins[i], x_maxs[i], y_mins[i], y_maxs[i]
 
             x_local, y_local = np.meshgrid(np.arange(x_min, x_max), np.arange(y_min, y_max))
             gaussian_star = amplitude * np.exp(
                 -((x_local - x0) ** 2 + (y_local - y0) ** 2) / (2 * sigma**2)
             )
 
-            # Add the star to the image
-            values = np.maximum(self._data[y_min:y_max, x_min:x_max], gaussian_star)
-            if (min_val := np.min(values)) > min_star_value:
-                min_star_value = min_val
-
-            self._data[y_min:y_max, x_min:x_max] = values
+            # Add the star to the image. If the current value is greater than the star value,
+            # keep it.
+            region = slice(y_min, y_max), slice(x_min, x_max)
+            self._data[region] = np.maximum(
+                self._data[region], gaussian_star
+            )
 
         # Bring the star values between sat_level and 0
         self._data = np.clip(self._data, 0, sat_level)
