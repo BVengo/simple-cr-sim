@@ -71,6 +71,10 @@ class Image:
         if self._data is not None:
             logger.warning("Call to `load_fits` is overwriting existing data!")
 
+        hdr = fits.getheader(fits_file)
+        if "HISTORY" in hdr:
+            self._history = hdr["HISTORY"]
+        
         self._data = fits.getdata(fits_file)
 
         return self
