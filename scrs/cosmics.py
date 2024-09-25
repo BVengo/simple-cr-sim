@@ -8,6 +8,8 @@ https://www.stsci.edu/files/live/sites/www/files/home/roman/_documents/Roman-STS
 
 import numpy as np
 import scipy.interpolate as interpolate
+from numpy import ndarray, dtype
+from typing import Any
 
 
 def get_rng(rng: np.random.Generator, seed: int) -> np.random.Generator:
@@ -88,7 +90,7 @@ def sample_cr_params(
     grid_size: int = 10000,
     rng: np.random.Generator = None,
     seed: int = 48,
-) -> tuple[float, float, float, float, float]:
+) -> tuple[Any, Any, ndarray[Any, dtype[Any]], Any, Any]:
     """
     Generates cosmic ray parameters randomly sampled from distribution. One might re-implement this
     by reading in parameters from a reference file, or something similar .
@@ -111,7 +113,7 @@ def sample_cr_params(
         cr_y (float between 0 and N_y-1): y pixel coordinate of cosmic ray, units of pixels.
         cr_phi (float between 0 and 2*pi): Direction of cosmic ray, units of radians.
         cr_length (float): Cosmic ray length, units of micron.
-        cr_dEdx (float): Cosmic ray energy loss, units of eV/micron.
+        cr_d_edx (float): Cosmic ray energy loss, units of eV/micron.
     """
     rng = get_rng(rng, seed)
 
@@ -126,11 +128,11 @@ def sample_cr_params(
     inv_cdf_length = create_sampler(power_law_distribution, len_grid)
     cr_length = inv_cdf_length(rng.random(N_samples))
 
-    dEdx_grid = np.linspace(min_dEdx, max_dEdx, grid_size)
-    inv_cdf_dEdx = create_sampler(moyal_distribution, dEdx_grid)
-    cr_dEdx = inv_cdf_dEdx(rng.random(N_samples))
+    d_edx_grid = np.linspace(min_dEdx, max_dEdx, grid_size)
+    inv_cdf_d_edx = create_sampler(moyal_distribution, d_edx_grid)
+    cr_d_edx = inv_cdf_d_edx(rng.random(N_samples))
 
-    return cr_x, cr_y, cr_angle, cr_length, cr_dEdx
+    return cr_x, cr_y, cr_angle, cr_length, cr_d_edx
 
 
 def traverse(
@@ -139,7 +141,7 @@ def traverse(
     N_i: int = 4096,
     N_j: int = 4096,
     eps: float = 1e-10,
-) -> tuple[np.ndarray[int], np.ndarray[int], np.ndarray[float]]:
+) -> tuple[ndarray[Any, dtype[Any]], ndarray[Any, dtype[Any]], ndarray[Any, dtype[Any]]]:
     """
     Given a starting and ending pixel , returns a list of pixel coordinates ( ii, jj ) and their
     traversed path lengths. Note that the centers of pixels are treated as integers , while the
@@ -164,10 +166,10 @@ def traverse(
 
     # Handle the case of a 0-length trail
     if np.allclose(trail_start, trail_end):
-        return ( 
+        return (
             np.array([np.round(i0).astype(int)]),
             np.array([np.round(j0).astype(int)]),
-            np.array([0])
+            np.array([0]),
         )
 
     # Ensure that the trail is always moving from left to right
@@ -223,7 +225,7 @@ def traverse(
 
     if len(crossings) == 0:
         # if no crossings , then it’s just the total Euclidean distance
-        lengths = np.linalg.norm([di, dj], keepdims=1)
+        lengths = np.linalg.norm(np.array([di, dj]), keepdims=1)
     else:
         # otherwise, compute starting, crossing, and ending distances
         first_length = np.linalg.norm(crossings[0] - np.array([i0, j0]), keepdims=1)
@@ -282,7 +284,7 @@ def simulate_crs(
 
     N_i, N_j = data.shape
     N_samples = rng.poisson(flux * area * time)
-    
+
     cr_i0, cr_j0, cr_angle, cr_length, cr_dEdx = sample_cr_params(
         N_samples, N_i=N_i, N_j=N_j, rng=rng
     )
@@ -294,7 +296,7 @@ def simulate_crs(
     # go from eV / micron -> electrons / pixel
     cr_counts_per_pix = cr_dEdx * pixel_size / conversion_factor
     for i0, j0, i1, j1, counts_per_pix in zip(cr_i0, cr_j0, cr_i1, cr_j1, cr_counts_per_pix):
-        ii, jj, length_2d = traverse([i0, j0], [i1, j1], N_i=N_i, N_j=N_j)
+        ii, jj, length_2d = traverse((i0, j0), (i1, j1), N_i=N_i, N_j=N_j)
         length_3d = ((pixel_depth / pixel_size) ** 2 + length_2d**2) ** 0.5
         data[ii, jj] += rng.poisson(counts_per_pix * length_3d).astype(np.uint16)
 
