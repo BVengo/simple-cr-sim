@@ -40,7 +40,7 @@ class Image:
             np.ndarray: A deep copy of the image data.
         """
         return deepcopy(self._data)
-    
+
     @property
     def history(self) -> list[str]:
         """
@@ -71,10 +71,12 @@ class Image:
         if self._data is not None:
             logger.warning("Call to `load_fits` is overwriting existing data!")
 
+        self._save_file = fits_file
+
         hdr = fits.getheader(fits_file)
         if "HISTORY" in hdr:
             self._history = hdr["HISTORY"]
-        
+
         self._data = fits.getdata(fits_file)
 
         return self
@@ -94,6 +96,34 @@ class Image:
             logger.warning("Call to `set_data` is overwriting existing data!")
 
         self._data = data
+
+        return self
+
+    def add_to_header(self, **kwargs) -> Self:
+        """
+        Adds a key-value pair to the header of the image.
+
+        Args:
+            **kwargs: Key-value pairs to add to the header, as keyword arguments.
+
+        Returns:
+            Self: The current instance of the image.
+        """
+        if self._save_file is None:
+            raise ValueError("Cannot add to header without a save file!.")
+
+        if not self._save_file.exists():
+            raise FileNotFoundError(
+                f"File {self._save_file} does not exist! Make sure that history is enabled."
+            )
+
+        hdu_list = fits.open(self._save_file)
+        hdr = hdu_list[0].header
+
+        for key, value in kwargs.items():
+            hdr.append((key, value))
+
+        hdu_list.writeto(self._save_file, overwrite=True)
 
         return self
 
@@ -177,7 +207,7 @@ class Image:
         self._history.append(history_note)
         logger.info(f"Saved history [{step_id}] for {step_name}")
 
-    def get_snapshot(self, *, query: str | None = None, idx: int | None = None) -> 'Image':
+    def get_snapshot(self, *, query: str | None = None, idx: int | None = None) -> "Image":
         """
         Retrieves a snapshot of the image at the given step or index. Stores it in a new
         Image instance.
@@ -200,7 +230,7 @@ class Image:
                 if query in hist:
                     idx = i
                     break
-            
+
             if idx is None:
                 raise ValueError("Could not find the given step in the history.")
 
@@ -210,8 +240,8 @@ class Image:
         hdu_list = fits.open(self._save_file)
         data = hdu_list[idx].data
         return Image(data)
-    
-    def get_diff(self, latest_idx: int, oldest_idx: int) -> 'Image':
+
+    def get_diff(self, latest_idx: int, oldest_idx: int) -> "Image":
         """
         Retrieves the difference between the image at the latest index and the oldest index.
         i.e. latest_idx - oldest_idx
