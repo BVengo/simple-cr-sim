@@ -50,7 +50,7 @@ class Image:
             list[str]: The history of operations.
         """
         return self._history
-    
+
     def get_header(self) -> dict:
         """
         Returns the header of the image.

@@ -59,13 +59,17 @@ class Simage(Image):
         max_amp = sat_level * (1.1 if allow_sat else 0.9)
 
         # Random star attributes.
-        x_positions = (self._rng.random(num_stars) * img_width).astype(np.uint32)  # Sized up for oversaturation
-        y_positions = (self._rng.random(num_stars) * img_height).astype(np.uint32)  # Sized up for oversaturation
+        x_positions = (self._rng.random(num_stars) * img_width).astype(
+            np.uint32
+        )  # Sized up for oversaturation
+        y_positions = (self._rng.random(num_stars) * img_height).astype(
+            np.uint32
+        )  # Sized up for oversaturation
         amplitudes = self._rng.uniform(1, max_amp, num_stars)
         sigmas = self._rng.uniform(1, max_sigma, num_stars)
 
         # Clip the region to the image bounds. Set all as integers.
-        radii = np.ceil(np.sqrt(-2 * sigmas ** 2 * np.log(0.5 / amplitudes)))
+        radii = np.ceil(np.sqrt(-2 * sigmas**2 * np.log(0.5 / amplitudes)))
 
         x_mins = np.maximum(0, x_positions - radii).astype(int)
         x_maxs = np.minimum(img_width, x_positions + radii + 1).astype(int)
@@ -85,7 +89,9 @@ class Simage(Image):
             # keep it.
             region = slice(y_min, y_max), slice(x_min, x_max)
             vals = np.maximum(self._data[region], gaussian_star)
-            vals = np.clip(vals, 0, sat_level)  # Clip now, because adding to the image may cause int overflow
+            vals = np.clip(
+                vals, 0, sat_level
+            )  # Clip now, because adding to the image may cause int overflow
 
             self._data[region] = vals
 
