@@ -50,6 +50,21 @@ class Image:
             list[str]: The history of operations.
         """
         return self._history
+    
+    def get_header(self) -> dict:
+        """
+        Returns the header of the image.
+
+        Returns:
+            dict: The header of the image.
+        """
+        if self._save_file is None:
+            raise ValueError("Cannot get header without a save file.")
+
+        if not self._save_file.exists():
+            raise FileNotFoundError(f"File {self._save_file} does not exist.")
+
+        return fits.getheader(self._save_file)
 
     @log_and_save
     def load_fits(self, fits_file: Path) -> Self:
