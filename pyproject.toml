@@ -15,6 +15,7 @@ python-dotenv = "^1.0.1"
 lacosmic = "^1.1.0"
 astroscrappy = "^1.2.0"
 pycosmic = {git = "git@github.com:brandherd/PyCosmic.git"}
+polars = "^1.8.2"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.6.4"
