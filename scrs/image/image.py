@@ -180,6 +180,12 @@ class Image:
             raise ValueError("Cannot enable history without a save path.")
 
         if path:
+            if not path.suffix == ".fits":
+                raise ValueError("History must be saved to a .fits file.")
+            
+            if not path.parent.exists():
+                raise FileNotFoundError(f"Directory {path.parent} does not exist.")
+
             if self._save_file is not None:
                 logger.warning("Path was already set! Saving to a new file.")
 
