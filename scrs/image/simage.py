@@ -2,8 +2,6 @@ import numpy as np
 from logging import getLogger
 from typing import Self
 
-from scipy.ndimage import gaussian_filter
-
 from scrs.image.logger import get_log_and_save
 from .image import Image
 from ..cosmics import simulate_crs
@@ -102,7 +100,7 @@ class Simage(Image):
         self,
         time: float = 1000,
         flux: float = 8,
-        area: float = 16.8,
+        area: float = 2,
         conversion_factor: float = 0.5,
         pixel_size: float = 10,
         pixel_depth: float = 5,
@@ -123,7 +121,7 @@ class Simage(Image):
         """
         return self.apply(
             lambda data: simulate_crs(
-                self._data,
+                data,
                 time=time,
                 flux=flux,
                 area=area,
@@ -137,8 +135,6 @@ class Simage(Image):
     @log_and_save
     def add_noise(
         self,
-        sigma: float = 2.3,
-        peak: float = 1,
         grid_size: tuple[int, int] = (4, 4),
         bias_range: tuple[int, int] = (995, 1005),
         stdev_range: tuple[float, float] = (2.0, 2.5),
@@ -147,8 +143,6 @@ class Simage(Image):
         Adds spatially varying background noise to the data.
 
         Args:
-            sigma (float, optional): Standard deviation of the Gaussian kernel used for blurring the image. Default is 2.3.
-            peak (float, optional): Peak value of the blurred image. Default is 65535.
             grid_size (tuple[int, int], optional): Number of grid cells along each dimension. Default is (4, 4).
             bias_range (tuple[int, int], optional): Range of bias values for each grid cell. Default is (995, 1005).
             stdev_range (tuple[float, float], optional): Range of standard deviation values for each grid cell. Default is (2.0, 2.5).
@@ -156,10 +150,6 @@ class Simage(Image):
         Returns:
             Self: The current instance of the class.
         """
-        # Blur and scale(?)
-        blurred_data: np.ndarray = gaussian_filter(self._data, sigma=sigma)
-        # blurred_data = peak * blurred_data / blurred_data.max()
-
         # Set bias values for each grid cell
         bias_values = self._rng.integers(*bias_range, size=grid_size)
         noise_stdev = self._rng.uniform(*stdev_range, size=grid_size)
@@ -182,5 +172,9 @@ class Simage(Image):
                 )
 
         # Add Poisson noise and return the result
-        self._data = self._rng.poisson(blurred_data)  #  + bias_image
+        tmp = self._data.copy().astype(np.uint32)  # Allowing for some overflow
+        tmp = self._rng.poisson(tmp) + bias_image
+
+        # Clip the data to 16-bit range
+        self._data = np.clip(tmp, 0, 65535).astype(np.uint16)
         return self
